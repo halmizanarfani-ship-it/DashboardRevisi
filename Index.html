@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengawasan Proses Revisi DIPA</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* --- ROLE SELECTION OVERLAY --- */
+        #roleOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--primary-color);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; color: white;
+        }
+        .role-cards { display: flex; gap: 20px; margin-top: 20px; }
+        .role-card {
+            background: white; color: var(--primary-color); padding: 30px;
+            border-radius: 10px; cursor: pointer; text-align: center;
+            font-weight: bold; font-size: 18px; width: 200px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s;
+        }
+        .role-card:hover { transform: scale(1.05); }
+
+        /* --- MAIN DASHBOARD --- */
+        .container {
+            max-width: 98%; margin: 0 auto; background-color: var(--card-bg);
+            padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .header {
+            text-align: center; margin-bottom: 20px; padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary-color); position: relative;
+        }
+        .header h1 { margin: 0; color: var(--primary-color); font-size: 24px; }
+        .btn-ganti-role {
+            position: absolute; right: 0; top: 0;
+            background: #7f8c8d; color: white; border: none; padding: 5px 10px;
+            border-radius: 5px; cursor: pointer; font-size: 12px;
+        }
+
+        /* SUMMARY CARDS */
+        .summary-container {
+            display: flex; gap: 20px; margin-bottom: 20px; justify-content: center;
+        }
+        .summary-box {
+            background: #ecf0f1; padding: 15px 30px; border-radius: 8px; text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-width: 150px; border-left: 5px solid;
+        }
+        .summary-box.total { border-color: #3498db; }
+        .summary-box.reject { border-color: #e74c3c; }
+        .summary-box h3 { margin: 0; font-size: 28px; color: var(--primary-color); }
+        .summary-box p { margin: 5px 0 0 0; font-size: 14px; font-weight: bold; color: #7f8c8d; }
+
+        /* Filter & Button Section */
+        .top-controls {
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+            gap: 15px; margin-bottom: 15px; background-color: #ecf0f1; padding: 15px; border-radius: 8px;
+        }
+        .filter-container { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .filter-container input, .filter-container select {
+            padding: 8px; border-radius: 5px; border: 1px solid #bdc3c7; font-weight: bold;
+        }
+
+        /* PERLEBAR TABEL UNTUK MENAMPUNG SEMUA KOLOM */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 1600px; }
+        th, td { padding: 10px 5px; text-align: center; border-bottom: 1px solid var(--border-color); vertical-align: middle; font-size: 13px; }
+        td.rata-kiri { text-align: left; }
+        th { background-color: var(--primary-color); color: white; font-weight: 600; font-size: 12px; }
+        tr:hover { background-color: #f9f9f9; }
+
+        .row-ditolak { background-color: #fadbd8 !important; }
+        .row-ditolak .kode-satker { color: #c0392b; }
+        .kode-satker { font-family: monospace; font-size: 14px; font-weight: bold; color: #2980b9; }
+
+        input[type="date"], input[type="number"] { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; }
+        input[type="number"].revisi-input { width: 50px; text-align: center; }
+        
+        /* Checkbox Ukuran Besar */
+        .checkbox-besar { transform: scale(1.4); cursor: pointer; }
+
+        .status-dropdown { padding: 6px 3px; border-radius: 20px; border: 1px solid #ccc; font-weight: bold; font-size: 12px; outline: none; cursor: pointer; text-align: center; width: 85px; }
+        .status-dropdown:disabled { opacity: 0.6; cursor: not-allowed; }
+        .status-belum { background-color: #ffeaa7; color: #d63031; border-color: #fdcb6e; }
+        .status-selesai { background-color: #55efc4; color: #00b894; border-color: #00b894; }
+
+        .btn-tambah { background-color: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-tambah:hover { background-color: #2ecc71; }
+        .btn-kosong { background-color: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-kosong:hover { background-color: #c0392b; }
+
+        .btn-aksi { padding: 6px 8px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; margin: 2px; }
+        .btn-hapus { background-color: #e74c3c; color: white; }
+        .btn-hapus:hover { background-color: #c0392b; }
+        .btn-tolak { background-color: #e67e22; color: white; }
+        .btn-batal-tolak { background-color: #7f8c8d; color: white; }
+        .btn-lihat-ket { background-color: #9b59b6; color: white; }
+
+        .bottom-controls { margin-top: 30px; text-align: right; border-top: 2px dashed #ccc; padding-top: 15px; }
+
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fff; margin: 5% auto; padding: 20px 30px; border-radius: 8px; width: 400px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px;}
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-family: inherit;}
+        .form-group input[readonly] { background-color: #eee; cursor: not-allowed; }
+        .btn-simpan { background-color: #3498db; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-simpan:hover { background-color: #2980b9; }
+        
+        .keterangan-text { background: #fdf2e9; padding: 10px; border-radius: 5px; border-left: 4px solid #e67e22; min-height: 50px;}
+    </style>
+</head>
+<body>
+
+<!-- OVERLAY PEMILIHAN ROLE -->
+<div id="roleOverlay">
+    <h2>Pilih Akses Pengguna Dashboard</h2>
+    <div class="role-cards">
+        <div class="role-card" onclick="setRole('pelaksana')">
+            👨‍💻 Dashboard<br>Pelaksana
+        </div>
+        <div class="role-card" onclick="setRole('kasi')">
+            👔 Dashboard<br>Kepala Seksi
+        </div>
+    </div>
+</div>
+
+<!-- CONTAINER UTAMA -->
+<div class="container" id="mainContainer">
+    <div class="header">
+        <h1 id="judulDashboard">Dashboard Pengawasan DIPA</h1>
+        <button class="btn-ganti-role" onclick="resetRole()">Ganti Role</button>
+    </div>
+
+    <!-- SUMMARY CARDS -->
+    <div class="summary-container">
+        <div class="summary-box total">
+            <h3 id="countTotal">0</h3>
+            <p>Total Revisi Terdaftar</p>
+        </div>
+        <div class="summary-box reject">
+            <h3 id="countTolak">0</h3>
+            <p>Total Revisi Ditolak</p>
+        </div>
+    </div>
+
+    <!-- KONTROL ATAS -->
+    <div class="top-controls" id="topControls">
+        <div class="filter-container">
+            <strong>Pencarian:</strong>
+            <input type="text" id="searchKode" placeholder="Cari Kode Satker..." onkeyup="renderTable()">
+            
+            <strong>Filter:</strong>
+            
+            <select id="filterPelaksana" onchange="renderTable()">
+                <option value="all">Semua Pelaksana</option>
+                <option value="Noorcahaya">Noorcahaya</option>
+                <option value="Halmizan Arfani">Halmizan Arfani</option>
+            </select>
+
+            <select id="filterKolom" onchange="renderTable()">
+                <option value="all">Semua Proses</option>
+                <!-- Opsi Khusus Pelaksana -->
+                <option value="statusSakti" class="opt-pelaksana">Pemeriksaan SAKTI</option>
+                <option value="statusNadine" class="opt-pelaksana">Proses Nadine</option>
+                <option value="statusAdk" class="opt-pelaksana">Copy ADK</option>
+                <option value="statusCw" class="opt-pelaksana">Upload CW</option>
+
+                <!-- Opsi Khusus Kasi -->
+                <option value="statusSaktiTahap3" class="opt-kasi">Proses SAKTI Tahap 3</option>
+                <option value="statusCwEs3" class="opt-kasi">CW Es III</option>
+                <option value="statusCwEs2" class="opt-kasi">CW Es II</option>
+                <option value="statusPrinting" class="opt-kasi">Printing DIPA</option>
+                <option value="statusPosting" class="opt-kasi">Posting</option>
+                <option value="statusSaktiHijau" class="opt-kasi">Sakti Penetapan Hijau</option>
+            </select>
+
+            <select id="filterStatus" onchange="renderTable()">
+                <option value="all">Status Apapun</option>
+                <option value="belum">Belum</option>
+                <option value="selesai">Sudah / Selesai</option>
+            </select>
+        </div>
+        
+        <div class="action-buttons" id="btnAddContainer">
+            <button class="btn-tambah" onclick="bukaModalTambah()">+ Tambah Data</button>
+        </div>
+    </div>
+
+    <!-- TABEL UTAMA -->
+    <div style="width: 100%; overflow-x: auto;">
+        <table id="tabelDipa">
+            <thead id="tabelHeader">
+                <!-- Header diisi via JavaScript berdasarkan Role -->
+            </thead>
+            <tbody id="tabelBody">
+                <!-- Data diisi via JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- KONTROL BAWAH -->
+    <div class="bottom-controls" id="bottomControls">
+        <button class="btn-kosong" onclick="bukaModalHapusBanyak()">🗑️ Hapus / Kosongkan Data</button>
+    </div>
+</div>
+
+<!-- Modal Form Tambah Data (Pelaksana) -->
+<div id="modalTambah" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="tutupModalTambah()">&times;</span>
+        <h3 style="margin-top:0;">Tambah Data Pengawasan</h3>
+        
+        <div class="form-group">
+            <label>Tanggal</label>
+            <input type="date" id="inputTanggal">
+        </div>
+        
+        <div class="form-group">
+            <label>Kode Satker</label>
+            <input type="text" id="inputKode" placeholder="Ketik kode..." onkeyup="cariSatker()" maxlength="6">
+        </div>
+        
+        <div class="form-group">
+            <label>Nama Satker</label>
+            <input type="text" id="inputNama" readonly placeholder="Nama Otomatis...">
+        </div>
+
+        <div class="form-group">
+            <label>Revisi Ke</label>
+            <input type="number" id="inputRevisi" placeholder="Cth: 1" min="1">
+        </div>
+
+        <div class="form-group">
+            <label>Nama Pelaksana</label>
+            <select id="inputPelaksana">
+                <option value="">-- Pilih Pelaksana --</option>
+                <option value="Noorcahaya">Noorcahaya</option>
+                <option value="Halmizan Arfani">Halmizan Arfani</option>
+            </select>
+        </div>
+        
+        <button class="btn-simpan" onclick="simpanData()">Simpan Data</button>
+    </div>
+</div>
+
+<!-- Modal Keterangan Tolak (Input) -->
+<div id="modalInputTolak" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="tutupModalTolak()">&times;</span>
+        <h3 style="margin-top:0; color:#e74c3c;">Tolak Revisi</h3>
+        <input type="hidden" id="tolakId">
+        <div class="form-group">
+            <label>Alasan Penolakan:</label>
+            <textarea id="inputAlasanTolak" rows="4" placeholder="Tuliskan keterangan detail mengapa revisi ditolak..."></textarea>
+        </div>
+        <button class="btn-simpan" style="background:#e74c3c;" onclick="prosesTolak()">Simpan & Tolak</button>
+    </div>
+</div>
+
+<!-- Modal Lihat Keterangan (View) -->
+<div id="modalLihatKet" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="document.getElementById('modalLihatKet').style.display='none'">&times;</span>
+        <h3 style="margin-top:0; color:#e67e22;">Keterangan Penolakan</h3>
+        <div class="keterangan-text" id="teksKeteranganView"></div>
+    </div>
+</div>
+
+<!-- Modal Filter Hapus Banyak -->
+<div id="modalHapusBanyak" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="tutupModalHapusBanyak()">&times;</span>
+        <h3 style="margin-top:0; color:#c0392b;">Hapus Data Terjadwal</h3>
+        <p style="font-size: 13px; color: #555; margin-bottom: 15px;">Silakan pilih kriteria data yang ingin dihapus. Jika dibiarkan kosong, maka semua data pada kriteria tersebut akan terhapus.</p>
+        
+        <div class="form-group">
+            <label>Nama Pelaksana</label>
+            <select id="hapusPelaksana">
+                <option value="all">Semua Pelaksana</option>
+                <option value="Noorcahaya">Noorcahaya</option>
+                <option value="Halmizan Arfani">Halmizan Arfani</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Dari Tanggal (Mulai)</label>
+            <input type="date" id="hapusTglMulai">
+        </div>
+
+        <div class="form-group">
+            <label>Sampai Tanggal (Akhir)</label>
+            <input type="date" id="hapusTglAkhir">
+        </div>
+        
+        <button class="btn-simpan" style="background-color: #c0392b;" onclick="prosesHapusBanyak()">Hapus Data Terpilih</button>
+    </div>
+</div>
+
+<script>
+    /* ================= DATA LOCALSTORAGE & INIT ================= */
+    let dataPengawasan = JSON.parse(localStorage.getItem("dataPengawasanDipa")) || [];
+    let currentRole = ""; 
+
+    // Daftar Sebagian Satker (Potongan sampel)
+    const referensiSatker = {
+        "694990": `Balai Pelatihan Kompetensi Fungsional Aparatur Pemerintahan Dalam Negeri Bidang Manajemen Pemerintahan Malang`,
+        "663315": `Pengadilan Militer Iii-10 Surabaya`,
+        "098366": `Pengadilan Negeri Pacitan`,
+        "005019": `Kejaksaan Negeri Kabupaten Blitar`,
+        "430524": `Kantor Pertanahan Kab. Pamekasan`,
+        "308880": `Madrasah Aliyah Negeri 2 Kediri`,
+        "598965": `Madrasah Aliyah Negeri 4 Madiun`,
+        "099143": `Pengadilan Negeri Bondowoso`,
+        "401307": `Pengadilan Agama Bojonegoro`,
+        "692964": `Rumah Detensi Imigrasi Surabaya`,
+        "051447": `Rumkit Bhayangkara Pusdik Brimob Lemdiklat Polri`
+        // Tambahkan seluruh data satker di sini
+    };
+
+    /* ================= LOGIKA ROLE ================= */
+    function setRole(role) {
+        currentRole = role;
+        document.getElementById('roleOverlay').style.display = 'none';
+        document.getElementById('mainContainer').style.display = 'block';
+        
+        let judul = document.getElementById('judulDashboard');
+        let btnAdd = document.getElementById('btnAddContainer');
+        let bottomCtrl = document.getElementById('bottomControls');
+        
+        let optPelaksana = document.querySelectorAll('.opt-pelaksana');
+        let optKasi = document.querySelectorAll('.opt-kasi');
+
+        document.getElementById('filterPelaksana').value = 'all';
+        document.getElementById('filterKolom').value = 'all';
+        document.getElementById('filterStatus').value = 'all';
+        
+        if (role === 'pelaksana') {
+            judul.innerText = "Dashboard Pengawasan Proses Revisi DIPA - Role: Pelaksana";
+            btnAdd.style.display = "block";
+            bottomCtrl.style.display = "block"; 
+            
+            optPelaksana.forEach(el => el.style.display = 'block');
+            optKasi.forEach(el => el.style.display = 'none');
+        } else {
+            judul.innerText = "Dashboard Pengawasan Proses Revisi DIPA - Role: Kepala Seksi";
+            btnAdd.style.display = "none";
+            bottomCtrl.style.display = "none"; 
+            
+            optPelaksana.forEach(el => el.style.display = 'none');
+            optKasi.forEach(el => el.style.display = 'block');
+        }
+        
+        renderTable();
+    }
+
+    function resetRole() {
+        document.getElementById('roleOverlay').style.display = 'flex';
+        document.getElementById('mainContainer').style.display = 'none';
+        currentRole = "";
+    }
+
+    /* ================= FUNGSI RENDER TABEL & SUMMARY ================= */
+    function renderTable() {
+        let thead = document.getElementById("tabelHeader");
+        let tbody = document.getElementById("tabelBody");
+        thead.innerHTML = "";
+        tbody.innerHTML = "";
+        
+        if(currentRole === 'pelaksana') {
+            thead.innerHTML = `
+                <tr>
+                    <th width="3%">No</th>
+                    <th width="7%">Tanggal</th>
+                    <th width="5%">Kode</th>
+                    <th width="15%">Nama Satker</th>
+                    <th width="5%">Rev Ke</th>
+                    <th width="9%">Nama Pelaksana</th>
+                    <th width="6%">DS Berubah</th>
+                    <th width="8%">Pemeriksaan SAKTI</th>
+                    <th width="8%">Proses Nadine</th>
+                    <th width="8%">Copy ADK</th>
+                    <th width="8%">Upload CW</th>
+                    <th width="14%">Aksi</th>
+                </tr>
+            `;
+        } else {
+            thead.innerHTML = `
+                <tr>
+                    <th width="3%">No</th>
+                    <th width="6%">Tanggal</th>
+                    <th width="5%">Kode</th>
+                    <th width="15%">Nama Satker</th>
+                    <th width="4%">Rev Ke</th>
+                    <th width="8%">Nama Pelaksana</th>
+                    <th width="5%">DS Berubah</th>
+                    <th width="7%">SAKTI Tahap 3</th>
+                    <th width="7%">CW Es III</th>
+                    <th width="7%">CW Es II</th>
+                    <th width="7%">Printing DIPA</th>
+                    <th width="7%">Posting</th>
+                    <th width="9%">Sakti Penetapan Hijau</th>
+                </tr>
+            `;
+        }
+
+        let searchKode = document.getElementById("searchKode").value.toLowerCase();
+        let fltPelaksana = document.getElementById("filterPelaksana").value;
+        let fltKolom = document.getElementById("filterKolom").value;
+        let fltStatus = document.getElementById("filterStatus").value;
+
+        let filteredData = dataPengawasan.filter(row => {
+            let matchKode = searchKode === "" || row.kode.toLowerCase().includes(searchKode);
+            let matchPelaksana = fltPelaksana === "all" || row.namaPelaksana === fltPelaksana;
+            
+            if (currentRole === 'kasi' && row.statusSakti !== 'selesai') {
+                return false; 
+            }
+
+            let matchStatus = true;
+            if (fltKolom !== "all" && fltStatus !== "all") {
+                // Untuk dropdown status biasa, nilai defaults ditangani di filter juga
+                let fieldVal = row[fltKolom] || 'belum';
+                matchStatus = (fieldVal === fltStatus);
+            } else if (fltKolom === "all" && fltStatus !== "all") {
+                if (currentRole === 'pelaksana') {
+                    matchStatus = (row.statusSakti === fltStatus || row.statusNadine === fltStatus || row.statusAdk === fltStatus || row.statusCw === fltStatus);
+                } else {
+                    let sCw3 = row.statusCwEs3 || 'belum';
+                    let sCw2 = row.statusCwEs2 || 'belum';
+                    let sPrint = row.statusPrinting || 'belum';
+                    let sPost = row.statusPosting || 'belum';
+                    let sHijau = row.statusSaktiHijau || 'belum';
+
+                    matchStatus = (row.statusSaktiTahap3 === fltStatus || sCw3 === fltStatus || sCw2 === fltStatus || sPrint === fltStatus || sPost === fltStatus || sHijau === fltStatus);
+                }
+            }
+
+            return matchKode && matchPelaksana && matchStatus;
+        });
+
+        let totalRev = filteredData.length;
+        let totalReject = filteredData.filter(d => d.isDitolak).length;
+        document.getElementById("countTotal").innerText = totalRev;
+        document.getElementById("countTolak").innerText = totalReject;
+
+        if (filteredData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:20px; color:#7f8c8d;">Belum ada data...</td></tr>`;
+            return;
+        }
+
+        filteredData.forEach((row, index) => {
+            let isDropdownDisabled = row.isDitolak ? 'disabled' : '';
+            let trClass = row.isDitolak ? 'row-ditolak' : '';
+            let isDs = row.isDsBerubah ? 'checked' : '';
+            
+            if (currentRole === 'pelaksana') {
+                let btnTolakHtml = row.isDitolak 
+                    ? `<button class="btn-aksi btn-batal-tolak" onclick="batalTolak('${row.id}')">Batal Tolak</button>
+                       <button class="btn-aksi btn-lihat-ket" onclick="lihatKeterangan('${row.id}')">Lihat Ket</button>`
+                    : `<button class="btn-aksi btn-tolak" onclick="bukaModalTolak('${row.id}')">Tolak</button>`;
+
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="${trClass}">
+                        <td>${index + 1}</td>
+                        <td><input type="date" value="${row.tanggal}" style="border:none;background:transparent;width:105px" onchange="updateValue('${row.id}', 'tanggal', this.value)"></td>
+                        <td class="kode-satker">${row.kode}</td>
+                        <td class="rata-kiri">${row.nama}</td>
+                        <td><input type="number" value="${row.revisiKe}" class="revisi-input" onchange="updateValue('${row.id}', 'revisiKe', this.value)" min="1"></td>
+                        <td>${row.namaPelaksana || '-'}</td>
+                        
+                        <!-- Checklist DS Berubah -->
+                        <td><input type="checkbox" class="checkbox-besar" ${isDs} onchange="updateValue('${row.id}', 'isDsBerubah', this.checked)"></td>
+
+                        <td><select onchange="updateStatus('${row.id}', 'statusSakti', this)" class="status-dropdown ${row.statusSakti === 'belum' ? 'status-belum' : 'status-selesai'}" ${isDropdownDisabled}>
+                            <option value="belum" ${row.statusSakti === 'belum' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${row.statusSakti === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        <td><select onchange="updateStatus('${row.id}', 'statusNadine', this)" class="status-dropdown ${row.statusNadine === 'belum' ? 'status-belum' : 'status-selesai'}" ${isDropdownDisabled}>
+                            <option value="belum" ${row.statusNadine === 'belum' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${row.statusNadine === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        <td><select onchange="updateStatus('${row.id}', 'statusAdk', this)" class="status-dropdown ${row.statusAdk === 'belum' ? 'status-belum' : 'status-selesai'}" ${isDropdownDisabled}>
+                            <option value="belum" ${row.statusAdk === 'belum' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${row.statusAdk === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        <td><select onchange="updateStatus('${row.id}', 'statusCw', this)" class="status-dropdown ${row.statusCw === 'belum' ? 'status-belum' : 'status-selesai'}" ${isDropdownDisabled}>
+                            <option value="belum" ${row.statusCw === 'belum' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${row.statusCw === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        
+                        <td>
+                            ${btnTolakHtml}
+                            <button class="btn-aksi btn-hapus" onclick="hapusData('${row.id}')">Hapus</button>
+                        </td>
+                    </tr>
+                `);
+            } 
+            else if (currentRole === 'kasi') {
+                // Konfigurasi Default Values agar data lama tidak error/kosong
+                let sCw3 = row.statusCwEs3 || 'belum';
+                let sCw2 = row.statusCwEs2 || 'belum';
+                let sPrint = row.statusPrinting || 'belum';
+                let sPost = row.statusPosting || 'belum';
+                let sHijau = row.statusSaktiHijau || 'belum';
+
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="${trClass}">
+                        <td>${index + 1}</td>
+                        <td>${row.tanggal}</td>
+                        <td class="kode-satker">${row.kode}</td>
+                        <td class="rata-kiri">${row.nama}</td>
+                        <td>${row.revisiKe}</td>
+                        <td>${row.namaPelaksana || '-'}</td>
+                        
+                        <!-- Checklist DS Berubah (Kasi hanya melihat, Disabled) -->
+                        <td><input type="checkbox" class="checkbox-besar" ${isDs} disabled></td>
+
+                        <td><select onchange="updateStatus('${row.id}', 'statusSaktiTahap3', this)" class="status-dropdown ${row.statusSaktiTahap3 === 'selesai' ? 'status-selesai' : 'status-belum'}" ${isDropdownDisabled}>
+                            <option value="belum" ${row.statusSaktiTahap3 !== 'selesai' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${row.statusSaktiTahap3 === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        
+                        <td><select onchange="updateStatus('${row.id}', 'statusCwEs3', this)" class="status-dropdown ${sCw3 === 'selesai' ? 'status-selesai' : 'status-belum'}" ${isDropdownDisabled}>
+                            <option value="belum" ${sCw3 !== 'selesai' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${sCw3 === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        
+                        <td><select onchange="updateStatus('${row.id}', 'statusCwEs2', this)" class="status-dropdown ${sCw2 === 'selesai' ? 'status-selesai' : 'status-belum'}" ${isDropdownDisabled}>
+                            <option value="belum" ${sCw2 !== 'selesai' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${sCw2 === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        
+                        <td><select onchange="updateStatus('${row.id}', 'statusPrinting', this)" class="status-dropdown ${sPrint === 'selesai' ? 'status-selesai' : 'status-belum'}" ${isDropdownDisabled}>
+                            <option value="belum" ${sPrint !== 'selesai' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${sPrint === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                        
+                        <td><select onchange="updateStatus('${row.id}', 'statusPosting', this)" class="status-dropdown ${sPost === 'selesai' ? 'status-selesai' : 'status-belum'}" ${isDropdownDisabled}>
+                            <option value="belum" ${sPost !== 'selesai' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${sPost === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+
+                        <td><select onchange="updateStatus('${row.id}', 'statusSaktiHijau', this)" class="status-dropdown ${sHijau === 'selesai' ? 'status-selesai' : 'status-belum'}" ${isDropdownDisabled}>
+                            <option value="belum" ${sHijau !== 'selesai' ? 'selected' : ''}>Belum</option>
+                            <option value="selesai" ${sHijau === 'selesai' ? 'selected' : ''}>Selesai</option>
+                        </select></td>
+                    </tr>
+                `);
+            }
+        });
+    }
+
+    /* ================= LOGIKA UPDATE STATE & AKSI ================= */
+    function updateStatus(id, field, element) {
+        let idx = dataPengawasan.findIndex(d => d.id == id);
+        if (idx > -1) {
+            dataPengawasan[idx][field] = element.value;
+            localStorage.setItem("dataPengawasanDipa", JSON.stringify(dataPengawasan));
+            element.className = 'status-dropdown ' + (element.value === 'belum' ? 'status-belum' : 'status-selesai');
+            renderTable();
+        }
+    }
+
+    function updateValue(id, field, value) {
+        let idx = dataPengawasan.findIndex(d => d.id == id);
+        if (idx > -1) {
+            dataPengawasan[idx][field] = value;
+            localStorage.setItem("dataPengawasanDipa", JSON.stringify(dataPengawasan));
+        }
+    }
+
+    function hapusData(id) {
+        if (confirm("Apakah Anda yakin ingin menghapus data Satker ini?")) {
+            dataPengawasan = dataPengawasan.filter(d => d.id !== id);
+            localStorage.setItem("dataPengawasanDipa", JSON.stringify(dataPengawasan));
+            renderTable();
+        }
+    }
+
+    /* ================= FUNGSI HAPUS DATA BANYAK / KOSONGKAN ================= */
+    function bukaModalHapusBanyak() {
+        document.getElementById('hapusPelaksana').value = 'all';
+        document.getElementById('hapusTglMulai').value = '';
+        document.getElementById('hapusTglAkhir').value = '';
+        document.getElementById('modalHapusBanyak').style.display = 'block';
+    }
+
+    function tutupModalHapusBanyak() {
+        document.getElementById('modalHapusBanyak').style.display = 'none';
+    }
+
+    function prosesHapusBanyak() {
+        let pelaksana = document.getElementById('hapusPelaksana').value;
+        let tglMulai = document.getElementById('hapusTglMulai').value;
+        let tglAkhir = document.getElementById('hapusTglAkhir').value;
+
+        let dataToDelete = dataPengawasan.filter(row => {
+            let matchPelaksana = (pelaksana === 'all' || row.namaPelaksana === pelaksana);
+            
+            let matchTanggal = true;
+            if (tglMulai && tglAkhir) {
+                matchTanggal = (row.tanggal >= tglMulai && row.tanggal <= tglAkhir);
+            } else if (tglMulai) {
+                matchTanggal = (row.tanggal >= tglMulai);
+            } else if (tglAkhir) {
+                matchTanggal = (row.tanggal <= tglAkhir);
+            }
+
+            return matchPelaksana && matchTanggal;
+        });
+
+        if (dataToDelete.length === 0) {
+            alert("Tidak ada data yang cocok dengan filter penghapusan ini.");
+            return;
+        }
+
+        if (confirm(`⚠️ PERINGATAN!\n\nDitemukan ${dataToDelete.length} data yang cocok dengan kriteria.\nApakah Anda YAKIN ingin MENGHAPUS data tersebut?\n\nData yang dihapus tidak dapat dikembalikan!`)) {
+            dataPengawasan = dataPengawasan.filter(row => !dataToDelete.includes(row));
+            
+            localStorage.setItem("dataPengawasanDipa", JSON.stringify(dataPengawasan));
+            tutupModalHapusBanyak();
+            renderTable();
+        }
+    }
+
+    /* ================= MODAL TOLAK (KETERANGAN POPUP) ================= */
+    function bukaModalTolak(id) {
+        document.getElementById('tolakId').value = id;
+        document.getElementById('inputAlasanTolak').value = "";
+        document.getElementById('modalInputTolak').style.display = 'block';
+    }
+
+    function tutupModalTolak() {
+        document.getElementById('modalInputTolak').style.display = 'none';
+    }
+
+    function prosesTolak() {
+        let id = document.getElementById('tolakId').value;
+        let alasan = document.getElementById('inputAlasanTolak').value;
+        if(alasan.trim() === "") {
+            alert("Harap isikan alasan penolakan!");
+            return;
+        }
+
+        let idx = dataPengawasan.findIndex(d => d.id == id);
+        if (idx > -1) {
+            dataPengawasan[idx].isDitolak = true;
+            dataPengawasan[idx].keterangan = alasan;
+            localStorage.setItem("dataPengawasanDipa", JSON.stringify(dataPengawasan));
+            tutupModalTolak();
+            renderTable();
+        }
+    }
+
+    function batalTolak(id) {
+        if(confirm("Batalkan status tolak untuk satker ini?")) {
+            let idx = dataPengawasan.findIndex(d => d.id == id);
+            if (idx > -1) {
+                dataPengawasan[idx].isDitolak = false;
+                dataPengawasan[idx].keterangan = "";
+                localStorage.setItem("dataPengawasanDipa", JSON.stringify(dataPengawasan));
+                renderTable();
+            }
+        }
+    }
+
+    function lihatKeterangan(id) {
+        let obj = dataPengawasan.find(d => d.id == id);
+        if(obj) {
+            document.getElementById('teksKeteranganView').innerText = obj.keterangan;
+            document.getElementById('modalLihatKet').style.display = 'block';
+        }
+    }
+
+    /* ================= MODAL TAMBAH DATA (PELAKSANA) ================= */
+    function bukaModalTambah() {
+        document.getElementById("modalTambah").style.display = "block";
+        document.getElementById("inputTanggal").valueAsDate = new Date();
+    }
+    
+    function tutupModalTambah() {
+        document.getElementById("modalTambah").style.display = "none";
+        document.getElementById("inputKode").value = "";
+        document.getElementById("inputNama").value = "";
+        document.getElementById("inputRevisi").value = "";
+        document.getElementById("inputPelaksana").value = "";
+    }
+
+    function cariSatker() {
+        let kode = document.getElementById("inputKode").value;
+        let namaField = document.getElementById("inputNama");
+        if (referensiSatker[kode]) {
+            namaField.value = referensiSatker[kode];
+        } else {
+            namaField.value = "";
+        }
+    }
+
+    function simpanData() {
+        let kode = document.getElementById("inputKode").value;
+        let nama = document.getElementById("inputNama").value;
+        let tanggal = document.getElementById("inputTanggal").value;
+        let revisi = document.getElementById("inputRevisi").value;
+        let pelaksana = document.getElementById("inputPelaksana").value;
+
+        if (kode === "" || nama === "" || revisi === "" || pelaksana === "") {
+            alert("Harap lengkapi Kode Satker, Revisi, dan Nama Pelaksana!");
+            return;
+        }
+
+        let newData = {
+            id: Date.now().toString(),
+            tanggal: tanggal,
+            kode: kode,
+            nama: nama,
+            revisiKe: revisi,
+            namaPelaksana: pelaksana,
+            isDsBerubah: false, // Menambahkan status awalan Checkbox DS Berubah
+            statusSakti: "belum",
+            statusNadine: "belum",
+            statusAdk: "belum",
+            statusCw: "belum",
+            statusSaktiTahap3: "belum",
+            statusCwEs3: "belum", // CW Es 3
+            statusCwEs2: "belum", // CW Es 2
+            statusPrinting: "belum", // Printing
+            statusPosting: "belum", // Posting
+            statusSaktiHijau: "belum", // Sakti penetapan Hijau
+            keterangan: "",
+            isDitolak: false
+        };
+
+        dataPengawasan.push(newData);
+        localStorage.setItem("dataPengawasanDipa", JSON.stringify(dataPengawasan));
+
+        tutupModalTambah();
+        renderTable();
+    }
+
+    // Penutup modal dengan klik di area gelap (opsional)
+    window.onclick = function(event) {
+        let modTambah = document.getElementById('modalTambah');
+        let modTolak = document.getElementById('modalInputTolak');
+        let modView = document.getElementById('modalLihatKet');
+        let modHapus = document.getElementById('modalHapusBanyak');
+        
+        if (event.target == modTambah) tutupModalTambah();
+        if (event.target == modTolak) tutupModalTolak();
+        if (event.target == modView) modView.style.display = "none";
+        if (event.target == modHapus) tutupModalHapusBanyak();
+    }
+
+</script>
+
+</body>
+</html>
